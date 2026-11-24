@@ -16,10 +16,11 @@
 </head>
 <body>
     <div id="login-screen" class="card">
+        <div class="login-icon">📡</div>
         <h2>Conexión al Host Debian</h2>
         <p class="subtitle">Registro vía <strong>TCP</strong> • Mensajería vía <strong>UDP</strong></p>
         <form id="login-form">
-            <input type="text" id="username-input" placeholder="Tu nombre de usuario" maxlength="15" required>
+            <input type="text" id="username-input" placeholder="Tu nombre de usuario" maxlength="15" autocomplete="off" required>
             <button type="submit">Unirse al Chat</button>
         </form>
         <p id="login-error" class="error"></p>
@@ -27,21 +28,54 @@
 
     <div id="chat-screen" class="chat-container hidden">
         <aside class="sidebar">
-            <h3>Conectados (<span id="user-count">0</span>/4)</h3>
-            <span class="badge tcp">Sincronizado vía TCP</span>
-            <ul id="users-list"></ul>
+            <div class="sidebar-top">
+                <div class="sidebar-header">
+                    <h3>Conectados (<span id="user-count">0</span>/4)</h3>
+                    <span class="badge tcp">Sincronizado vía TCP</span>
+                </div>
+                <ul id="users-list"></ul>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="current-user">
+                    <div id="my-avatar" class="avatar">?</div>
+                    <div class="current-user-info">
+                        <span id="my-username-label" class="current-user-name">Usuario</span>
+                        <span class="current-user-sub">En sala</span>
+                    </div>
+                </div>
+                <button type="button" id="logout-btn" class="logout-btn" title="Salir o cambiar de nombre">Salir</button>
+            </div>
         </aside>
 
         <main class="chat-main">
             <header class="chat-header">
-                <span>Sala General</span>
+                <div class="header-left">
+                    <span class="room-title"># Sala General</span>
+                    <span class="conn-indicator">
+                        <span id="conn-dot" class="status-dot online"></span>
+                        <span id="conn-text">En línea</span>
+                    </span>
+                </div>
                 <span class="badge udp">Paquetes UDP en tiempo real</span>
             </header>
-            <div id="messages" class="messages"></div>
-            <form id="message-form" class="message-form">
-                <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off" required>
-                <button type="submit">Enviar</button>
-            </form>
+
+            <div id="messages" class="messages">
+                <div id="empty-state" class="empty-state">
+                    <span>💬</span>
+                    <p>Aún no hay mensajes. ¡Envía el primero!</p>
+                </div>
+            </div>
+
+            <div class="input-wrapper">
+                <div id="emoji-picker" class="emoji-picker hidden" aria-label="Selector de emojis"></div>
+
+                <form id="message-form" class="message-form">
+                    <button type="button" id="emoji-toggle" class="icon-btn" title="Insertar emoji">😊</button>
+                    <input type="text" id="message-input" placeholder="Escribe un mensaje o pega un enlace..." autocomplete="off" required>
+                    <button type="submit" class="send-btn">Enviar</button>
+                </form>
+            </div>
         </main>
     </div>
 

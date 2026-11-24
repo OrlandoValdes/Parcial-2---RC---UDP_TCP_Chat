@@ -28,6 +28,8 @@ const udpClient = dgram.createSocket('udp4');
 udpClient.bind(0); // Asigna un puerto UDP libre automáticamente
 
 udpClient.on('message', (msg) => {
+    if (!currentUsername) return; // Ignora paquetes si el usuario ya salió
+
     const raw = msg.toString(); // Formato: CHAT:usuario:mensaje
     if (raw.startsWith('CHAT:')) {
         const firstColon = raw.indexOf(':');
@@ -39,9 +41,19 @@ udpClient.on('message', (msg) => {
 });
 
 function sendToBrowser(payload) {
-    if (sseResponse) {
+    if (sseResponse && !sseResponse.writableEnded) {
         sseResponse.write(`data: ${JSON.stringify(payload)}\n\n`);
     }
+}
+
+function closeTcpSession() {
+    if (tcpClient) {
+        const oldClient = tcpClient;
+        tcpClient = null;
+        oldClient.end();
+        setTimeout(() => oldClient.destroy(), 300);
+    }
+    currentUsername = '';
 }
 
 // --- SERVIDOR HTTP + SSE PARA LA INTERFAZ WEB ---
@@ -60,6 +72,10 @@ const httpServer = http.createServer((req, res) => {
             'Connection': 'keep-alive'
         });
         sseResponse = res;
+
+        req.on('close', () => {
+            if (sseResponse === res) sseResponse = null;
+        });
         return;
     }
 
@@ -71,21 +87,32 @@ const httpServer = http.createServer((req, res) => {
             const { username } = JSON.parse(body);
             const localUdpPort = udpClient.address().port;
 
-            tcpClient = new net.Socket();
-            tcpClient.connect(HOST_TCP_PORT, HOST_IP, () => {
-                tcpClient.write(`LOGIN:${username}:${localUdpPort}\n`);
+            // Cierra cualquier sesión previa antes de abrir una nueva
+            closeTcpSession();
+
+            const client = new net.Socket();
+            tcpClient = client;
+
+            client.connect(HOST_TCP_PORT, HOST_IP, () => {
+                client.write(`LOGIN:${username}:${localUdpPort}\n`);
             });
 
-            tcpClient.on('data', (data) => {
+            client.on('data', (data) => {
                 const lines = data.toString().trim().split('\n');
                 for (const line of lines) {
                     if (line.startsWith('OK:')) {
                         currentUsername = username;
-                        res.writeHead(200, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ ok: true }));
+                        if (!res.headersSent) {
+                            res.writeHead(200, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ ok: true }));
+                        }
                     } else if (line.startsWith('ERROR:')) {
-                        res.writeHead(400, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ ok: false, error: line.slice(6) }));
+                        client.destroy();
+                        if (tcpClient === client) tcpClient = null;
+                        if (!res.headersSent) {
+                            res.writeHead(400, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ ok: false, error: line.slice(6) }));
+                        }
                     } else if (line.startsWith('USERS:')) {
                         const users = line.slice(6).split(',').filter(Boolean);
                         sendToBrowser({ type: 'users', users });
@@ -93,7 +120,18 @@ const httpServer = http.createServer((req, res) => {
                 }
             });
 
-            tcpClient.on('error', (err) => {
+            client.on('close', () => {
+                if (tcpClient === client) {
+                    tcpClient = null;
+                    currentUsername = '';
+                }
+            });
+
+            client.on('error', (err) => {
+                if (tcpClient === client) {
+                    tcpClient = null;
+                    currentUsername = '';
+                }
                 if (!res.headersSent) {
                     res.writeHead(500, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ ok: false, error: err.message }));
@@ -103,8 +141,22 @@ const httpServer = http.createServer((req, res) => {
         return;
     }
 
+    // Endpoint de Logout (cierra la conexión TCP limpiamente para liberar el cupo)
+    if (req.method === 'POST' && req.url === '/api/logout') {
+        closeTcpSession();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+    }
+
     // Endpoint para enviar mensaje (envía paquete UDP a la VM)
     if (req.method === 'POST' && req.url === '/api/message') {
+        if (!currentUsername) {
+            res.writeHead(401);
+            res.end();
+            return;
+        }
+
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', () => {
