@@ -1,0 +1,50 @@
+<!-- 
+  Interfaz web para el servicio chat mediante udp y tcpIP
+  Hecho por: Ahmed Diaz (8-974-474)
+           Orlando Valdés (8-997-1296)
+  Curso: Redes de Computadoras
+  Grupo: 1GS132
+-->
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Híbrido TCP/UDP</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="login-screen" class="card">
+        <h2>Conexión al Host Debian</h2>
+        <p class="subtitle">Registro vía <strong>TCP</strong> • Mensajería vía <strong>UDP</strong></p>
+        <form id="login-form">
+            <input type="text" id="username-input" placeholder="Tu nombre de usuario" maxlength="15" required>
+            <button type="submit">Unirse al Chat</button>
+        </form>
+        <p id="login-error" class="error"></p>
+    </div>
+
+    <div id="chat-screen" class="chat-container hidden">
+        <aside class="sidebar">
+            <h3>Conectados (<span id="user-count">0</span>/4)</h3>
+            <span class="badge tcp">Sincronizado vía TCP</span>
+            <ul id="users-list"></ul>
+        </aside>
+
+        <main class="chat-main">
+            <header class="chat-header">
+                <span>Sala General</span>
+                <span class="badge udp">Paquetes UDP en tiempo real</span>
+            </header>
+            <div id="messages" class="messages"></div>
+            <form id="message-form" class="message-form">
+                <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off" required>
+                <button type="submit">Enviar</button>
+            </form>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
